@@ -33,6 +33,7 @@ The enterprise needs a platform-level mechanism that enforces secure-by-default 
 
 ---
 <img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/36b8ce9b-bcec-432c-bc24-38401b3df165" />
+---
 # The Architecture
 
 The solution is built on a principle:
