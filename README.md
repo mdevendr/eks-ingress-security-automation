@@ -1,4 +1,6 @@
 # EKS Ingress Security Automation – Event-Driven Shield Advanced, WAF, and Health-Check Enforcement
+**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
+https://www.linkedin.com/in/mahesh-devendran-83a3b214/
 
 ### Executive Overview
 
@@ -111,5 +113,4 @@ Teams continue using Ingress resources; security enforcement is transparent and 
 This design upgrades Amazon EKS ingress from an ad-hoc implementation to a governed, secure, enterprise-grade ingress platform. It ensures security is consistent, automated, and invisible to the developer experience — the hallmark of a mature cloud operating model.
 
 ---
-**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
 
