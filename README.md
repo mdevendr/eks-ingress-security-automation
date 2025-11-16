@@ -112,6 +112,4 @@ This design upgrades Amazon EKS ingress from an ad-hoc implementation to a gover
 
 ---
 **Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
-"""
 
-**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
