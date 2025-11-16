@@ -1,224 +1,117 @@
-# EKS Ingress Security Automation – Auto‑ShieldAdvanced, Auto‑HealthChecks, WebACL Attachment
+# EKS Ingress Security Automation – Event-Driven Shield Advanced, WAF, and Health-Check Enforcement
 
-## 1. Executive Summary
+### Executive Overview
 
-When you expose workloads from Amazon EKS via Kubernetes Ingress, the AWS Load Balancer Controller automatically creates Application Load Balancers (ALBs).  
-By default, however, those ALBs are **not**:
+Modern organisations deploying workloads on Amazon EKS rely on Kubernetes Ingress to publish services externally. The AWS Load Balancer Controller automatically provisions Application Load Balancers (ALBs) for these ingress definitions, but these ALBs are not secure by default.
 
-- Registered as protected resources in **AWS Shield Advanced**
-- Attached to the correct **AWS WAF WebACL**
-- Covered by a standardised **Amazon Route 53 Health Check** in the right hosted zone
+They are created without mandatory security and resilience controls such as:
 
-This design implements an **event‑driven security automation layer** so that *every* ALB created by EKS Ingress is:
+- Registration as protected resources in AWS Shield Advanced
+- Association with the correct AWS WAF WebACL
+- Route 53 health checks required for reliable DNS failover
+- Consistent lifecycle governance and clean deletion behaviour
 
-1. Automatically attached to the correct WebACL (created separately by CI/CD)
-2. Automatically added as a Shield Advanced protected resource
-3. Automatically given a Route 53 health check in the relevant hosted zone
+In regulated sectors such as Financial Services, Insurance, and Payments, this becomes a governance, compliance, and operational risk.
 
-On ALB deletion, the same automation safely:
-
-- Deletes the corresponding Route 53 health check
-- Removes the ALB from the Shield Advanced protected resources
-- Cleans up its state from DynamoDB
-
-WAF WebACLs and WAF logging to SIEM (for example Azure Sentinel via Kinesis → S3) are created and managed by CI/CD and security teams; this pattern focuses purely on **binding each new ALB into those existing controls**.
+This architecture introduces an event-driven security automation layer that ensures every ALB created through EKS Ingress is automatically protected, monitored, and centrally governed.
 
 ---
 
-## 2. Problem Statement
+# The Challenge
 
-Without automation:
+EKS makes deployment effortless, but that same agility introduces architectural risks:
 
-- Developers can create public ALBs via Ingress without any Shield Advanced protection.
-- WebACL association is manual and often forgotten.
-- Health checks are inconsistent, making DNS‑based resilience unreliable.
-- Deleting an ALB can leave orphaned health checks and misaligned Shield Advanced configuration.
+- Security attachments depend on manual actions or team-specific pipelines
+- ALBs may remain publicly exposed without Shield Advanced or WAF
+- DNS and health checks differ between services, weakening resilience
+- ALB deletion leaves orphaned resources such as health checks
+- Audit and security teams cannot enforce protection uniformly
 
-The goal is to make **“secure by default”** the easiest path: if an ALB exists, it is protected and monitored.
-
----
-
-## 3. High‑Level Flow
-
-1. CI/CD deploys an EKS Ingress object with the AWS Load Balancer Controller annotations.
-2. The controller provisions an internet‑facing ALB and applies any required tags.
-3. CloudTrail records the `CreateLoadBalancer` API call.
-4. An Amazon EventBridge rule matches this event and invokes the **ManageProtectedResources** Lambda.
-5. Lambda:
-   - Reads ALB tags to understand which WebACL and DNS record to use.
-   - Creates a Route 53 health check for the ALB DNS name.
-   - Creates or updates a Route 53 Alias record in the specified hosted zone, wired to that health check.
-   - Calls Shield Advanced APIs to add the ALB as a protected resource.
-   - Associates the ALB with the correct WAF WebACL.
-   - Persists the mapping (ALBArn, HealthCheckId, HostedZoneId, RecordName, canonical zone id, DNS name) into DynamoDB.
-6. When an ALB is deleted, CloudTrail emits `DeleteLoadBalancer`:
-   - EventBridge triggers the same Lambda in “delete” mode.
-   - Lambda looks up the ALBArn in DynamoDB.
-   - It deletes the Route 53 health check.
-   - It removes the ALB from Shield Advanced protected resources.
-   - It deletes the DynamoDB item for that ALB.
-   - WebACL disassociation happens automatically as part of resource deletion.
-
-Result: **no public ALB created by EKS can exist without Shield Advanced, WebACL attachment, and a health check.**
+The enterprise needs a platform-level mechanism that enforces secure-by-default ingress across all microservices.
 
 ---
 
-## 4. Key AWS Components
+# The Architecture
 
-### 4.1 EKS + AWS Load Balancer Controller
+The solution is built on a principle:
+“If an ALB exists, it must be protected.”
 
-- Ingress resources with `kubernetes.io/ingress.class: alb` trigger ALB creation.
-- TLS and listener behaviour are driven via standard ALB Ingress annotations (certificate ARN, HTTPS ports, scheme etc.).
-- CI/CD is responsible for applying these manifests.
+When an EKS Ingress triggers ALB creation:
 
-### 4.2 CloudTrail
+- CloudTrail records the API call
+- EventBridge detects the lifecycle event
+- A central Lambda function applies all required security controls
 
-- Records the `CreateLoadBalancer` and `DeleteLoadBalancer` API calls from the `elasticloadbalancing.amazonaws.com` service.
-- Acts as the authoritative event source for ALB lifecycle.
+The automation:
 
-### 4.3 EventBridge Rules
+- Reads ALB attributes and tags
+- Attaches the ALB to the appropriate WebACL (managed through CI/CD)
+- Registers the ALB with AWS Shield Advanced
+- Creates standardised Route 53 health checks
+- Creates or updates corresponding DNS alias records
+- Stores all ALB metadata in DynamoDB for reliable cleanup
 
-Two rules on the default event bus:
+When the ALB is deleted, the automation reverses the workflow:
 
-- `CreateLoadBalancer` rule:
-  - source: `aws.elasticloadbalancing`
-  - detail‑type: `AWS API Call via CloudTrail`
-  - eventName: `CreateLoadBalancer`
-- `DeleteLoadBalancer` rule:
-  - source: `aws.elasticloadbalancing`
-  - detail‑type: `AWS API Call via CloudTrail`
-  - eventName: `DeleteLoadBalancer`
+- Removes it from Shield Advanced
+- Deletes associated health checks
+- Cleans up DNS records as appropriate
+- Deletes the DynamoDB state
 
-Each rule targets the **ManageProtectedResources** Lambda.
-
-### 4.4 Lambda – ManageProtectedResources
-
-Single Lambda function that implements two paths:
-
-- **Create path**
-  - Extract ALB ARN, DNS name and canonical hosted zone id from the CloudTrail event.
-  - Call `DescribeTags` to read ALB tags:
-    - `waf-acl-arn` – ARN of the WebACL created by CI/CD.
-    - `record-name` – full DNS name to create in Route 53.
-    - `hosted-zone-id` – Route 53 public hosted zone to update.
-  - Create a Route 53 health check targeting the ALB DNS name.
-  - Create or update an Alias A record in the hosted zone pointing to the ALB (alias target = ALB DNS name + canonical hosted zone id) linked to the health check.
-  - Add the ALB as a protected resource in Shield Advanced.
-  - Associate the WebACL to the ALB.
-  - Store ALBArn and all derived IDs in a DynamoDB item.
-
-- **Delete path**
-  - Extract ALB ARN from the CloudTrail event.
-  - Look up the item in DynamoDB by ALBArn.
-  - If the item is found:
-    - Delete the Route 53 health check.
-    - Remove the ALB from Shield Advanced protected resources.
-    - Optionally clean up the Route 53 Alias record (depending on DNS strategy).
-    - Delete the DynamoDB item.
-  - If the item is not found, exit gracefully (idempotent behaviour).
-
-### 4.5 DynamoDB – AlbStateTable
-
-Used purely as a **lightweight state store** so the delete flow can safely undo what the create flow did.
-
-Primary key:
-
-- ALBArn (partition key, string)
-
-Attributes:
-
-- ALBArn
-- DnsName
-- CanonicalHostedZoneId
-- HostedZoneId
-- RecordName
-- HealthCheckId
-
-Billing mode: on‑demand for simplicity and cost‑efficiency.
-
-### 4.6 Shield Advanced
-
-- Shield Advanced is enabled at the account level.
-- Lambda uses the Shield APIs to register and deregister ALB ARNs as protected resources.
-- This ensures all EKS‑created public ALBs inherit DDoS detection, mitigation and reporting.
-
-### 4.7 AWS WAF
-
-- WebACLs are provisioned and configured via CI/CD (rules, rule groups, logging configuration etc.).
-- Lambda only:
-  - Looks up the WebACL ARN from the ALB tag.
-  - Associates the ALB with that WebACL.
-- When an ALB is deleted, WAF automatically removes the association; Lambda does **not** need to manage this explicitly.
+This ensures that ingress security is automatically enforced from creation to deletion.
+<img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/36b8ce9b-bcec-432c-bc24-38401b3df165" />
 
 ---
 
-## 5. Ingress and ALB Configuration
+# Architectural Insights
 
-Although this repository focuses on the event‑driven automation, a consistent Ingress pattern is assumed.
+Event-driven enforcement  
+Using CloudTrail and EventBridge ensures every ALB—regardless of cluster, namespace, or team—is covered without modifying CI/CD pipelines.
 
-Typical annotations on the Ingress:
+Clear separation of responsibilities  
+- CI/CD defines WebACLs, WAF logging, and SIEM ingestion  
+- The automation layer enforces the controls for every ALB  
+- Security teams govern rules, not lifecycle events
 
-- `kubernetes.io/ingress.class: alb`
-- `alb.ingress.kubernetes.io/scheme: internet-facing`
-- `alb.ingress.kubernetes.io/listen-ports: [{"HTTPS":443}]`
-- `alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:REGION:ACCOUNT_ID:certificate/xxxx`
+Tag-driven control  
+ALB tags define WebACL, hosted zone, and DNS names, enabling scaling across multi-cluster, multi-tenant, and multi-region environments.
 
-Typical tags on the resulting ALB (added via Ingress or post‑provision tagging):
+Predictable deletion  
+DynamoDB maintains itemised ALB state so cleanup is complete and consistent.
 
-- `waf-acl-arn` – ARN of the WebACL to attach.
-- `record-name` – e.g. `service.example.com`.
-- `hosted-zone-id` – ID of the public hosted zone where the Alias record must be created.
-
-These tags decouple the automation from any specific application; the same Lambda can service many EKS clusters and ALBs.
-
----
-
-## 6. IAM and Security Considerations
-
-The Lambda execution role must be able to:
-
-- Read ALB attributes and tags  
-- Create and delete Route 53 health checks and alias records  
-- Register and deregister protected resources in Shield Advanced  
-- Associate ALBs to existing WAF WebACLs  
-- Read/write items in the DynamoDB AlbStateTable  
-- Write to CloudWatch Logs for observability  
-
-Principle of least privilege still applies – in production, narrow the resources to specific hosted zones, WebACL ARNs and tables.
+Compliance alignment  
+The approach aligns naturally with PCI-DSS, DORA, and ISO 27001 by enforcing security controls uniformly and providing audit-ready evidence.
 
 ---
 
-## 7. Operational Characteristics
+# Business Value
 
-- **Idempotent behaviour** – repeated events for the same ALB are handled safely by using DynamoDB as the single source of truth.
-- **Failure visibility** – all actions (create / delete) are logged to CloudWatch Logs with ALB ARN context.
-- **Scalability** – the pattern naturally scales with EventBridge and Lambda; DynamoDB on‑demand handles bursty ALB creation in large environments.
-- **Separation of concerns** – CI/CD creates WebACL definitions and enables WAF logging; the event‑driven layer simply connects each ALB into those existing controls.
+Secure by default  
+Every ALB is protected instantly without developer intervention.
 
----
+Reduced operational risk  
+No dependency on manual steps removes misconfiguration risk.
 
-## 8. Business Value
+Standardised ingress behaviour  
+All workloads inherit the same security and resilience posture.
 
-For platform and security leaders, this pattern delivers:
+Improved resilience  
+Route 53 health checks and consistent DNS patterns enhance failover strategy.
 
-- **Secure by default ingress** for EKS microservices.
-- **Reduced operational risk** – no more “forgot to add Shield Advanced or WAF” incidents.
-- **Consistent DNS and health‑check behaviour** across all externally exposed services.
-- **Evidence of control** for regulators and auditors (PCI‑DSS, DORA, ISO 27001) showing that all public entry points are automatically protected.
-- **Minimal developer friction** – teams continue to work with standard Ingress manifests while the platform takes care of advanced protections.
+Traceability and audit readiness  
+DynamoDB and CloudWatch provide a full lifecycle trail.
 
----
-
-## 9. Future Extensions
-
-- Multi‑region deployment with Route 53 latency/geo routing.
-- Automatic selection of WebACL based on service tags or namespaces.
-- Integration with AWS Config / Security Hub for drift detection.
-- Use of AI/ML on WAF/SIEM data to recommend tighter rules per service.
+Preserves delivery velocity  
+Teams continue using Ingress resources; security enforcement is transparent and automated.
 
 ---
 
+# Closing Perspective
 
-Mahesh Devendran – Cloud Architect | Multi-Cloud (AWS/Azure/GCP) | Security, EKS, Serverless & Event-Driven Automation | Financial Services
+This design upgrades Amazon EKS ingress from an ad-hoc implementation to a governed, secure, enterprise-grade ingress platform. It ensures security is consistent, automated, and invisible to the developer experience — the hallmark of a mature cloud operating model.
 
-This pattern was designed and tested as part of an EKS ingress hardening initiative, using real ALB create/delete events, Route 53 health checks, Shield Advanced protected resources, and DynamoDB‑backed state management.
+---
+**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
+"""
+
+**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
