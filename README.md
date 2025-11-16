@@ -1,5 +1,5 @@
-# EKS Ingress Security Automation – Event-Driven Shield Advanced, WAF, and Health-Check Enforcement
-**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
+## EKS Ingress Security Automation – Event-Driven Shield Advanced, WAF, and Health-Check Enforcement
+###**Mahesh Devendran — Cloud Architect | Multi-Cloud | Security & Resilience Architecture | EKS | Serverless | Event-Driven Platforms | Financial Services**
 -
 https://www.linkedin.com/in/mahesh-devendran-83a3b214/
 
@@ -33,7 +33,7 @@ EKS makes deployment effortless, but that same agility introduces architectural 
 The enterprise needs a platform-level mechanism that enforces secure-by-default ingress across all microservices.
 
 ---
-
+<img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/36b8ce9b-bcec-432c-bc24-38401b3df165" />
 # The Architecture
 
 The solution is built on a principle:
@@ -62,7 +62,7 @@ When the ALB is deleted, the automation reverses the workflow:
 - Deletes the DynamoDB state
 
 This ensures that ingress security is automatically enforced from creation to deletion.
-<img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/36b8ce9b-bcec-432c-bc24-38401b3df165" />
+
 
 ---
 
