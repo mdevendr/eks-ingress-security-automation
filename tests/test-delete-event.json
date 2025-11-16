@@ -1,0 +1,8 @@
+{
+  "detail": {
+    "eventName": "DeleteLoadBalancer",
+    "requestParameters": {
+      "loadBalancerArn": "arn:aws:elasticloadbalancing:region:acct:loadbalancer/app/test/123"
+    }
+  }
+}

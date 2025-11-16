@@ -1,0 +1,15 @@
+{
+  "detail": {
+    "eventName": "CreateLoadBalancer",
+    "responseElements": {
+      "loadBalancers": [
+        {
+          "loadBalancerArn": "arn:aws:elasticloadbalancing:region:acct:loadbalancer/app/test/123",
+          "dNSName": "test-alb.region.elb.amazonaws.com",
+          "canonicalHostedZoneId": "ZABC123"
+        }
+      ]
+    },
+    "requestParameters": {}
+  }
+}
