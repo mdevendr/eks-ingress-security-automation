@@ -34,7 +34,8 @@ EKS makes deployment effortless, but that same agility introduces architectural 
 The enterprise needs a platform-level mechanism that enforces secure-by-default ingress across all microservices.
 
 ---
-<img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/36b8ce9b-bcec-432c-bc24-38401b3df165" />
+<img width="3807" height="1755" alt="ShieldAdvance" src="https://github.com/user-attachments/assets/8aed4f9b-e180-4f89-92d4-f0cb84b49837" />
+
 
 ---
 
