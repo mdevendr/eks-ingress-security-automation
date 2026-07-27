@@ -5,4 +5,4 @@ aws elbv2 create-load-balancer \
   --subnets subnet-xxx subnet-yyy \
   --security-groups sg-xxx \
   --tags Key=record-name,Value=service.example.com \
-         Key=hosted-zone-id,Value=<enter hosted zone id here>
+         'Key=hosted-zone-id,Value=<enter hosted zone id here>'

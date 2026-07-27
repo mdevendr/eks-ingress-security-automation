@@ -1,0 +1,47 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Sid": "LoadBalancerRead",
+      "Effect": "Allow",
+      "Action": ["elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeTags", "elasticloadbalancing:SetWebACL"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WafAssociation",
+      "Effect": "Allow",
+      "Action": ["wafv2:GetWebACLForResource", "wafv2:GetWebACL", "wafv2:AssociateWebACL"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ShieldHealthAssociation",
+      "Effect": "Allow",
+      "Action": ["shield:ListProtections", "shield:DescribeProtection", "shield:AssociateHealthCheck", "shield:DisassociateHealthCheck"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53HealthRead",
+      "Effect": "Allow",
+      "Action": ["route53:ListHealthChecks", "route53:GetHealthCheck", "route53:GetHealthCheckStatus"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Inventory",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Scan"],
+      "Resource": "DDB_TABLE_ARN"
+    },
+    {
+      "Sid": "FailureAndTracing",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage", "xray:PutTraceSegments", "xray:PutTelemetryRecords"],
+      "Resource": "*"
+    }
+  ]
+}

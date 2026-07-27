@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secure-alb-developer
+  namespace: secure-alb-demo
+rules:
+  - apiGroups: ["platform.eks.example"]
+    resources: ["securealbs"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secure-alb-observer
+  namespace: secure-alb-demo
+rules:
+  - apiGroups: ["gateway.networking.k8s.io", "gateway.k8s.aws", "route53.services.k8s.aws"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]

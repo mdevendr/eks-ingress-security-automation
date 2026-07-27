@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NormalizedSecureALBFinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "findingType", "resourceArn", "severity", "source", "observedAt", "untrustedTrafficSummary"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "findingType": {"type": "string"},
+    "resourceArn": {"type": "string", "pattern": "^arn:aws:"},
+    "expectedPolicy": {"type": "string", "maxLength": 128},
+    "observedWebAclArn": {"type": "string", "maxLength": 512},
+    "severity": {"enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"]},
+    "source": {"enum": ["reconciler", "kubernetes", "cloudtrail", "waf", "shield"]},
+    "observedAt": {"type": "string"},
+    "untrustedTrafficSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleCount", "sampleHashes", "rawContentIncluded", "trustLevel"],
+      "properties": {
+        "sampleCount": {"type": "integer", "minimum": 0},
+        "sampleHashes": {"type": "array", "maxItems": 20, "items": {"type": "string", "pattern": "^sha256:"}},
+        "rawContentIncluded": {"const": false},
+        "trustLevel": {"const": "UNTRUSTED"}
+      }
+    }
+  }
+}

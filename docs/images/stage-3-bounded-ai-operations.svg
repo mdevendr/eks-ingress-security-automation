@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="920" viewBox="0 0 1600 920" role="img" aria-labelledby="title desc">
+  <title id="title">Stage 3 bounded AI-assisted security operations</title>
+  <desc id="desc">Trusted platform metadata and untrusted traffic samples enter a deterministic normalizer. Raw traffic is hashed and excluded. A schema-validated finding reaches an advisory AI model. Any proposed action is schema checked, policy checked and approved by a human before allow-listed least-privilege tools can invoke existing reconciliation and evidence workflows. Prohibited actions remain blocked.</desc>
+  <defs>
+    <marker id="arrow3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#425466"/></marker>
+    <style>
+      .bg{fill:#f7f9fc}.band{fill:#eef3f8;stroke:#c7d3df;stroke-width:2}.node{fill:#fff;stroke:#8193a6;stroke-width:2}.trusted{fill:#e8f2ff;stroke:#1769aa;stroke-width:2}.untrusted{fill:#fff0ef;stroke:#b43b32;stroke-width:2}.control{fill:#ebf8ef;stroke:#2f855a;stroke-width:2}.ai{fill:#f3eafa;stroke:#7b3f98;stroke-width:2}.blocked{fill:#f3f4f6;stroke:#6b7280;stroke-width:2}.title{font:700 34px Arial,sans-serif;fill:#182230}.subtitle{font:400 19px Arial,sans-serif;fill:#526172}.h{font:700 20px Arial,sans-serif;fill:#182230}.t{font:600 17px Arial,sans-serif;fill:#25364a}.s{font:400 14px Arial,sans-serif;fill:#526172}.lane{font:700 17px Arial,sans-serif;fill:#526172;letter-spacing:1px}.edge{fill:none;stroke:#425466;stroke-width:2.5;marker-end:url(#arrow3)}.dash{fill:none;stroke:#6b7280;stroke-width:2.2;stroke-dasharray:8 7;marker-end:url(#arrow3)}.red{fill:none;stroke:#b43b32;stroke-width:2.5;marker-end:url(#arrow3)}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="920"/>
+  <text class="title" x="55" y="55">Stage 3 — Bounded AI-assisted operations</text>
+  <text class="subtitle" x="55" y="88">The model diagnoses and proposes; deterministic controls retain authority over every operational action.</text>
+
+  <rect class="band" x="45" y="125" width="300" height="690" rx="20"/><text class="lane" x="75" y="160">OBSERVATIONS</text>
+  <rect class="band" x="375" y="125" width="360" height="690" rx="20"/><text class="lane" x="405" y="160">DETERMINISTIC TRUST BOUNDARY</text>
+  <rect class="band" x="765" y="125" width="300" height="690" rx="20"/><text class="lane" x="795" y="160">AI ADVISORY</text>
+  <rect class="band" x="1095" y="125" width="460" height="690" rx="20"/><text class="lane" x="1125" y="160">CONTROLLED EXECUTION</text>
+
+  <rect class="trusted" x="80" y="205" width="230" height="125" rx="16"/><text class="h" x="195" y="242" text-anchor="middle">Trusted metadata</text><text class="s" x="195" y="272" text-anchor="middle">reconciler findings · resource ARN</text><text class="s" x="195" y="297" text-anchor="middle">expected policy · severity</text><text class="s" x="195" y="320" text-anchor="middle">allow-listed source and type</text>
+  <rect class="untrusted" x="80" y="400" width="230" height="145" rx="16"/><text class="h" x="195" y="438" text-anchor="middle">Untrusted traffic data</text><text class="s" x="195" y="468" text-anchor="middle">WAF headers · paths</text><text class="s" x="195" y="493" text-anchor="middle">User-Agent · request samples</text><text class="s" x="195" y="520" text-anchor="middle">Attacker-controlled content</text>
+  <rect class="node" x="80" y="630" width="230" height="105" rx="16"/><text class="h" x="195" y="668" text-anchor="middle">Platform state</text><text class="s" x="195" y="697" text-anchor="middle">Kubernetes · ALB · WAF</text><text class="s" x="195" y="720" text-anchor="middle">Shield · CloudTrail history</text>
+
+  <rect class="control" x="415" y="250" width="280" height="200" rx="18"/><text class="h" x="555" y="289" text-anchor="middle">Normalizer</text><text class="t" x="555" y="322" text-anchor="middle">Implemented control</text><text class="s" x="555" y="352" text-anchor="middle">allow-list finding types and sources</text><text class="s" x="555" y="378" text-anchor="middle">validate ARNs, policies and severity</text><text class="s" x="555" y="404" text-anchor="middle">hash and cap traffic samples</text><text class="s" x="555" y="430" text-anchor="middle">rawContentIncluded = false</text>
+  <rect class="control" x="415" y="525" width="280" height="135" rx="18"/><text class="h" x="555" y="563" text-anchor="middle">Finding schema</text><text class="t" x="555" y="594" text-anchor="middle">NormalizedSecureALBFinding</text><text class="s" x="555" y="621" text-anchor="middle">additionalProperties = false</text><text class="s" x="555" y="645" text-anchor="middle">trustLevel = UNTRUSTED</text>
+  <path class="edge" d="M310 267 L405 320"/><path class="red" d="M310 472 L405 385"/><path class="edge" d="M310 682 L405 425"/><path class="edge" d="M555 450 L555 515"/>
+
+  <rect class="ai" x="805" y="300" width="220" height="180" rx="24"/><text class="h" x="915" y="341" text-anchor="middle">AI advisor</text><text class="s" x="915" y="375" text-anchor="middle">correlates findings</text><text class="s" x="915" y="401" text-anchor="middle">explains likely cause</text><text class="s" x="915" y="427" text-anchor="middle">proposes bounded action</text><text class="t" x="915" y="458" text-anchor="middle">No AWS credentials</text>
+  <rect class="node" x="805" y="565" width="220" height="105" rx="16"/><text class="h" x="915" y="603" text-anchor="middle">Operator evidence</text><text class="s" x="915" y="632" text-anchor="middle">diagnosis · recommendation</text><text class="s" x="915" y="656" text-anchor="middle">supporting resource state</text>
+  <path class="edge" d="M695 592 C750 592 750 390 795 390"/><path class="edge" d="M915 480 L915 555"/>
+
+  <rect class="control" x="1135" y="205" width="180" height="105" rx="16"/><text class="h" x="1225" y="243" text-anchor="middle">Action schema</text><text class="s" x="1225" y="272" text-anchor="middle">type · target · bounds</text><text class="s" x="1225" y="295" text-anchor="middle">expiry · rollback</text>
+  <rect class="control" x="1340" y="205" width="180" height="105" rx="16"/><text class="h" x="1430" y="243" text-anchor="middle">Policy checks</text><text class="s" x="1430" y="272" text-anchor="middle">allow-list · IAM scope</text><text class="s" x="1430" y="295" text-anchor="middle">risk and environment</text>
+  <rect class="control" x="1235" y="375" width="190" height="105" rx="16"/><text class="h" x="1330" y="413" text-anchor="middle">Human approval</text><text class="s" x="1330" y="442" text-anchor="middle">required for material</text><text class="s" x="1330" y="465" text-anchor="middle">security changes</text>
+  <rect class="control" x="1135" y="545" width="180" height="120" rx="16"/><text class="h" x="1225" y="583" text-anchor="middle">Allow-listed tools</text><text class="s" x="1225" y="612" text-anchor="middle">existing reconciler</text><text class="s" x="1225" y="637" text-anchor="middle">evidence collector</text><text class="s" x="1225" y="660" text-anchor="middle">least privilege</text>
+  <rect class="trusted" x="1340" y="545" width="180" height="120" rx="16"/><text class="h" x="1430" y="583" text-anchor="middle">Converged state</text><text class="s" x="1430" y="612" text-anchor="middle">deterministic repair</text><text class="s" x="1430" y="637" text-anchor="middle">audit evidence</text><text class="s" x="1430" y="660" text-anchor="middle">rollback path</text>
+  <path class="edge" d="M1025 390 C1080 390 1080 257 1125 257"/><path class="edge" d="M1315 257 L1330 257"/><path class="edge" d="M1430 310 C1430 345 1330 345 1330 365"/><path class="edge" d="M1330 480 C1330 515 1225 515 1225 535"/><path class="edge" d="M1315 605 L1330 605"/>
+
+  <rect class="blocked" x="1125" y="720" width="395" height="65" rx="14"/><text class="t" x="1322" y="746" text-anchor="middle">Always prohibited</text><text class="s" x="1322" y="770" text-anchor="middle">IAM changes · subscription changes · policy-catalogue changes · teardown</text>
+  <path class="dash" d="M1025 440 C1080 440 1060 752 1115 752"/>
+  <text class="s" x="80" y="855">Trust rule: attacker-controlled log content is data, never instruction. Authority remains with schemas, policy, approval and deterministic tools.</text>
+</svg>

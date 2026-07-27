@@ -1,0 +1,144 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: secure-alb
+spec:
+  schema:
+    apiVersion: v1alpha1
+    group: platform.eks.example
+    kind: SecureALB
+    spec:
+      hostname: string | required=true
+      serviceName: string | required=true
+      servicePort: integer | required=true minimum=1 maximum=65535
+      wafPolicyRef: string | required=true enum=regulated-public,standard-public,internal-api
+      certificateArn: string | required=true
+      accessLogBucket: string | required=true
+  resources:
+    - id: wafPolicies
+      externalRef:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: secure-alb-waf-policies
+          namespace: secure-alb-system
+    - id: targetGroupConfig
+      template:
+        apiVersion: gateway.k8s.aws/v1
+        kind: TargetGroupConfiguration
+        metadata:
+          name: ${schema.metadata.name}-targets
+          namespace: ${schema.metadata.namespace}
+        spec:
+          defaultConfiguration:
+            targetType: ip
+            protocol: HTTP
+            protocolVersion: HTTP1
+            healthCheckConfig:
+              healthCheckInterval: 15
+              healthCheckPath: /health
+              healthCheckPort: traffic-port
+              healthCheckProtocol: HTTP
+              healthyThresholdCount: 2
+              unhealthyThresholdCount: 2
+              matcher:
+                httpCode: "200"
+    - id: loadBalancerConfig
+      template:
+        apiVersion: gateway.k8s.aws/v1
+        kind: LoadBalancerConfiguration
+        metadata:
+          name: ${schema.metadata.name}-alb
+          namespace: ${schema.metadata.namespace}
+        spec:
+          scheme: internet-facing
+          ipAddressType: ipv4
+          defaultTargetGroupConfiguration:
+            name: ${targetGroupConfig.metadata.name}
+          listenerConfigurations:
+            - protocolPort: HTTPS:443
+              defaultCertificate: ${schema.spec.certificateArn}
+              sslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+          wafV2:
+            webACL: ${wafPolicies.data[schema.spec.wafPolicyRef]}
+          shieldConfiguration:
+            enabled: false
+          loadBalancerAttributes:
+            - key: deletion_protection.enabled
+              value: "false"
+            - key: routing.http.drop_invalid_header_fields.enabled
+              value: "true"
+            - key: access_logs.s3.enabled
+              value: "true"
+            - key: access_logs.s3.bucket
+              value: ${schema.spec.accessLogBucket}
+            - key: access_logs.s3.prefix
+              value: secure-alb
+          tags:
+            secure-alb/id: ${schema.metadata.namespace}/${schema.metadata.name}
+            secure-alb/hostname: ${schema.spec.hostname}
+            secure-alb/waf-policy-ref: ${schema.spec.wafPolicyRef}
+            secure-alb/web-acl-arn: ${wafPolicies.data[schema.spec.wafPolicyRef]}
+            managed-by: kro
+    - id: gateway
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: Gateway
+        metadata:
+          name: ${schema.metadata.name}
+          namespace: ${schema.metadata.namespace}
+        spec:
+          gatewayClassName: aws-alb-secure
+          infrastructure:
+            parametersRef:
+              group: gateway.k8s.aws
+              kind: LoadBalancerConfiguration
+              name: ${loadBalancerConfig.metadata.name}
+          listeners:
+            - name: https
+              protocol: HTTPS
+              port: 443
+              hostname: ${schema.spec.hostname}
+              allowedRoutes:
+                namespaces:
+                  from: Same
+    - id: route
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${schema.metadata.name}
+          namespace: ${schema.metadata.namespace}
+        spec:
+          parentRefs:
+            - name: ${gateway.metadata.name}
+              sectionName: https
+          hostnames:
+            - ${schema.spec.hostname}
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /
+              backendRefs:
+                - name: ${schema.spec.serviceName}
+                  port: ${schema.spec.servicePort}
+    - id: healthCheck
+      template:
+        apiVersion: route53.services.k8s.aws/v1alpha1
+        kind: HealthCheck
+        metadata:
+          name: ${schema.metadata.name}
+          namespace: ${schema.metadata.namespace}
+        spec:
+          callerReference: ${schema.metadata.uid}
+          healthCheckConfig:
+            type: HTTPS
+            fullyQualifiedDomainName: ${schema.spec.hostname}
+            port: 443
+            resourcePath: /health
+            requestInterval: 30
+            failureThreshold: 3
+          tags:
+            - key: secure-alb/id
+              value: ${schema.metadata.namespace}/${schema.metadata.name}

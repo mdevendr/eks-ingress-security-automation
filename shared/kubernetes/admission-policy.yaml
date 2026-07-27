@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: require-secure-alb-controls
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["gateway.k8s.aws"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["loadbalancerconfigurations"]
+  validations:
+    - expression: "has(object.spec.wafV2) && has(object.spec.wafV2.webACL) && object.spec.wafV2.webACL != ''"
+      message: "Every ALB LoadBalancerConfiguration must specify a WAFv2 WebACL."
+    - expression: "has(object.spec.loadBalancerAttributes) && object.spec.loadBalancerAttributes.exists(a, a.key == 'access_logs.s3.enabled' && a.value == 'true')"
+      message: "Every ALB must enable S3 access logging."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: require-secure-alb-controls
+spec:
+  policyName: require-secure-alb-controls
+  validationActions: [Deny]
+  matchResources: {}

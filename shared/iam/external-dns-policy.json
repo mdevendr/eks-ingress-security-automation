@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ChangeRecordsInApprovedZone",
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets"],
+      "Resource": "HOSTED_ZONE_ARN"
+    },
+    {
+      "Sid": "DiscoverRoute53",
+      "Effect": "Allow",
+      "Action": ["route53:ListHostedZones", "route53:ListResourceRecordSets", "route53:ListTagsForResource"],
+      "Resource": "*"
+    }
+  ]
+}

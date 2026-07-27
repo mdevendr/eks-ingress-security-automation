@@ -21,6 +21,98 @@ Linkedin Post : https://www.linkedin.com/posts/mahesh-devendran-83a3b214_aws-eks
 
 ---
 
+# 2026 Native-Capability Implementation
+
+The repository now includes a script-driven implementation of the evolved architecture:
+
+- Amazon EKS with a single diversified Spot managed node group and no NAT Gateway
+- Stage 0 control case using the established Kubernetes Ingress model
+- Kubernetes Gateway API and AWS Load Balancer Controller ALB Gateway support
+- Stage 1 explicit Gateway API resources with ACK and ExternalDNS
+- Stage 2 managed kro composition through a platform-authored `SecureALB` API
+- ConfigMap-backed logical WAF policies, so applications never submit raw WebACL ARNs
+- mandatory WAF, Shield Advanced, TLS, invalid-header dropping, and ALB access logs
+- a gap-filler Lambda that associates the ACK health check with the Shield protection
+- a scheduled reconciler with `AUDIT` and `REMEDIATE` modes
+- admission enforcement for WAF, Shield, and access logging
+- smoke, drift-remediation, evidence, and teardown scripts
+
+Firewall Manager is intentionally outside the current scope.
+
+## Cost and safety boundary
+
+The lab never creates a Shield Advanced subscription. `SHIELD_ALREADY_SUBSCRIBED=true` is required and `describe-subscription` must succeed. Use an account that is already subscribed and tear the lab down immediately after evidence capture.
+
+## Configure
+
+Prerequisites are AWS CLI v2, Python 3, kubectl, an existing Regional WAFv2 WebACL, public hosted zone, validated ACM certificate, ALB-log S3 bucket, and Shield Advanced subscription.
+
+```bash
+cp config/example.env config/lab.env
+${EDITOR:-vi} config/lab.env
+./scripts/install-tools.sh
+```
+
+## Validate locally
+
+```bash
+python -m py_compile shared/functions/gap-filler/lambda_function.py shared/functions/reconciler/lambda_function.py stages/03-ai-operations/normalizer.py
+python -m unittest discover -s tests -p 'test_*.py'
+bash -n scripts/*.sh
+./scripts/package-functions.sh
+```
+
+## Deploy, test, and collect evidence
+
+Run from Git Bash:
+
+```bash
+./scripts/deploy-all.sh config/lab.env 0
+./scripts/deploy-all.sh config/lab.env 1
+./scripts/test-drift.sh config/lab.env
+./scripts/capture-evidence.sh config/lab.env 1
+```
+
+Stage 0 is the original-model EDA control case. It deploys a minimal HTTP Kubernetes `Ingress` and proves the ALB create/delete path through CloudTrail, EventBridge, Lambda and DynamoDB without requiring WAF, Shield, ACM, Route 53, ACK or ExternalDNS. Stage 1 is the Gateway API golden baseline and deploys explicit `Gateway`, `HTTPRoute`, `LoadBalancerConfiguration`, `TargetGroupConfiguration`, and ACK `HealthCheck` resources. ExternalDNS owns Route 53 records from Stage 1 onward; the Lambda owns lifecycle inventory and the optional Shield health-check association.
+
+After Stage 1 evidence is captured, transition to Stage 2 without rebuilding the cluster:
+
+```bash
+./stages/01-gateway-api/teardown.sh config/lab.env
+./scripts/enable-capabilities.sh config/lab.env ALL
+./scripts/deploy-kubernetes.sh config/lab.env 2
+./scripts/smoke-test.sh config/lab.env
+./stages/02-kro/test-policy-guardrails.sh
+./scripts/test-drift.sh config/lab.env
+./scripts/capture-evidence.sh config/lab.env 2
+```
+
+Stage 2 must produce the same AWS controls as Stage 1. Differences are treated as kro-specific until proven otherwise.
+
+## Repository stages
+
+```text
+shared/                  reusable Lambdas, IAM and platform controls
+stages/00-ingress/       existing Ingress and annotation-based control case
+stages/01-gateway-api/   explicit golden-baseline resources
+stages/02-kro/           SecureALB RGD, WAF catalogue and RBAC tests
+stages/03-ai-operations/ normalized, instruction-free AI input boundary
+```
+
+Stage 3 remains advisory until both deterministic stages have evidence. Raw attacker-controlled headers, paths and request data are never passed to the model; the normalizer provides bounded hashes and trusted finding metadata.
+
+The platform-version milestones and the reason each stage exists are maintained in [Architecture evolution and version timeline](docs/architecture-evolution.md). Update that document whenever a platform capability changes a stage boundary.
+
+## Teardown
+
+```bash
+./scripts/teardown-all.sh config/lab.env "$RUN_ID"
+```
+
+Teardown removes the `SecureALB` while kro and ACK are active, then deletes the capabilities, serverless infrastructure, and EKS cluster.
+
+---
+
 # The Challenge
 
 EKS makes deployment effortless, but that same agility introduces architectural risks:
@@ -56,14 +148,14 @@ The automation:
 - Attaches the ALB to the appropriate WebACL (managed through CI/CD)
 - Registers the ALB with AWS Shield Advanced
 - Creates standardised Route 53 health checks
-- Creates or updates corresponding DNS alias records
+- ExternalDNS creates and reconciles Route 53 records from `HTTPRoute.spec.hostnames`
 - Stores all ALB metadata in DynamoDB for reliable cleanup
 
 When the ALB is deleted, the automation reverses the workflow:
 
 - Removes it from Shield Advanced
 - Deletes associated health checks
-- Cleans up DNS records as appropriate
+- ExternalDNS removes the DNS records it owns when the corresponding routes are deleted
 - Deletes the DynamoDB state
 
 This ensures that ingress security is automatically enforced from creation to deletion.
@@ -82,7 +174,7 @@ Clear separation of responsibilities
 - Security teams govern rules, not lifecycle events
 
 Tag-driven control  
-ALB tags define WebACL, hosted zone, and DNS names, enabling scaling across multi-cluster, multi-tenant, and multi-region environments.
+Platform policy references select the WebACL, while `HTTPRoute` hostnames define DNS names, enabling scaling across multi-cluster, multi-tenant, and multi-region environments.
 
 Predictable deletion  
 DynamoDB maintains itemised ALB state so cleanup is complete and consistent.
