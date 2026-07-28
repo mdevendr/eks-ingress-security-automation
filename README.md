@@ -17,7 +17,7 @@ In regulated sectors such as Financial Services, Insurance, and Payments, this b
 
 This architecture introduces an event-driven security automation layer that ensures every ALB created through EKS Ingress is automatically protected, monitored, and centrally governed.
 
-Linkedin Post : https://www.linkedin.com/posts/mahesh-devendran-83a3b214_aws-eks-cloudarchitecture-activity-7395776029266550784-3Y7d
+Linkedin Post : https://lnkd.in/p/epDv3wSY
 
 ---
 
