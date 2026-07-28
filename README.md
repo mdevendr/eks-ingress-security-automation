@@ -208,7 +208,11 @@ Teams continue using Ingress resources; security enforcement is transparent and 
 
 # Closing Perspective
 
-This design upgrades Amazon EKS ingress from an ad-hoc implementation to a governed, secure, enterprise-grade ingress platform. It ensures security is consistent, automated, and invisible to the developer experience — the hallmark of a mature cloud operating model.
+This architecture evolves Amazon EKS ingress from independently managed routing and security controls into a governed platform capability. Stage 0 responds to the ALB lifecycle through event-driven automation, Stage 1 moves supported responsibilities to Gateway API and purpose-built controllers, and Stage 2 optionally packages the same deterministic resource graph behind a platform-authored `SecureALB` API.
+
+Across these stages, the principle remains unchanged: if an intended internet-facing ALB exists, its required protection must be consistently applied, verified, reconciled, and removed as part of the resource lifecycle. Application teams declare workload intent, while the platform owns the security-control attachments and cross-service assurance without requiring another deployment step.
+
+That is the foundation of a mature cloud operating model: explicit ownership, deterministic enforcement, auditable lifecycle evidence, and a simple developer experience.
 
 ---
 
