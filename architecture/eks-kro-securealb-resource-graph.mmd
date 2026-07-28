@@ -1,0 +1,32 @@
+flowchart LR
+    Platform["Platform team"] -->|"Deploy once"| RGD["ResourceGraphDefinition<br/>secure-alb"]
+
+    RGD --> KRO["kro controller"]
+    KRO -->|"Registers custom API"| API["SecureALB API<br/>platform.eks.example/v1alpha1"]
+
+    App["Application team"] -->|"Creates instance"| CR["SecureALB<br/>payments"]
+    API -. "defines schema" .-> CR
+    CR --> KRO
+
+    Catalog["Platform WAF policy catalogue<br/>ConfigMap"] -. "externalRef" .-> KRO
+
+    KRO --> TGC["TargetGroupConfiguration"]
+    KRO --> LBC["LoadBalancerConfiguration"]
+    KRO --> GW["Gateway"]
+    KRO --> Route["HTTPRoute"]
+    KRO --> HC["ACK HealthCheck"]
+
+    TGC --> ALBC["AWS Load Balancer Controller"]
+    LBC --> ALBC
+    GW --> ALBC
+    Route --> ALBC
+
+    ALBC --> AWS["ALB + WebACL association<br/>+ Shield Advanced protection"]
+
+    Route --> ExternalDNS["ExternalDNS"]
+    ExternalDNS --> DNS["Route 53 alias"]
+
+    HC --> ACK["ACK Route 53 controller"]
+    ACK --> R53HC["Route 53 health check"]
+
+    Admission["ValidatingAdmissionPolicy<br/>+ RBAC"] -. "independent guardrail" .-> LBC
