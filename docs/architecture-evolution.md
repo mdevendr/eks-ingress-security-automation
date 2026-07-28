@@ -15,7 +15,6 @@ The dates below describe platform availability. They do not claim that every pro
 | Amazon EKS 1.30, 23 May 2024 | Amazon EKS made Kubernetes 1.30 available. | EKS users could rely on the stable admission-policy API. This is the version boundary between the historical Stage 0 model and the later enforcement model in this repository. | `shared/kubernetes/admission-policy.yaml` applied by Stages 1 and 2. |
 | Current deterministic platform model | AWS Load Balancer Controller Gateway API support, ExternalDNS Gateway API sources and ACK allow the ALB, routes, DNS intent and Route 53 health check to be expressed as controller-reconciled resources. | Replaces annotation-heavy Ingress intent with explicit `Gateway`, `HTTPRoute`, `LoadBalancerConfiguration` and `TargetGroupConfiguration` resources. A narrow Lambda remains for the cross-service Shield health-check association and lifecycle inventory. | `stages/01-gateway-api` |
 | Current platform-abstraction model | kro can compose Kubernetes and ACK resources behind a platform-authored custom API. Amazon EKS Capabilities can operate ACK and kro as managed cluster capabilities. | Application teams submit `SecureALB`; the platform owns the resource graph, WAF policy catalogue and security defaults. Admission enforcement remains independent of kro. | `stages/02-kro` |
-| Next operational layer | Generative AI can assist with diagnosis, correlation and remediation planning, but attack telemetry contains attacker-controlled data. | Normalize untrusted input, keep the model advisory first, validate all output, and expose only deterministic bounded tools behind policy and approval. | `stages/03-ai-operations` |
 
 ## Stage-to-stage change record
 
@@ -34,13 +33,6 @@ The dates below describe platform availability. They do not claim that every pro
 - Replace direct application authorship with the `SecureALB` custom API.
 - Resolve logical `wafPolicyRef` values through a platform-controlled catalogue.
 - Use kro for composition, not as the security boundary or as a writer of per-ALB DynamoDB state.
-
-### Stage 2 to Stage 3
-
-- Keep deterministic controllers and reconciliation as the execution layer.
-- Add normalized findings and advisory reasoning above that layer.
-- Treat WAF and Shield traffic fields as untrusted data, never as model instructions.
-- Require schema validation, policy checks and approval before any operational action.
 
 ## Article rules
 
