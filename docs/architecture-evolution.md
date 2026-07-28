@@ -13,8 +13,51 @@ The dates below describe platform availability. They do not claim that every pro
 | Kubernetes 1.26, December 2022 | `ValidatingAdmissionPolicy` first appeared as an alpha feature. | It was not an appropriate portable production dependency for the original Stage 0 implementation. | Timeline context only. |
 | Kubernetes 1.30, 17 April 2024 | `ValidatingAdmissionPolicy` graduated to generally available. | CEL-based admission enforcement became a stable native alternative to a separate validating webhook for these controls. | Used from Stage 1 onward. |
 | Amazon EKS 1.30, 23 May 2024 | Amazon EKS made Kubernetes 1.30 available. | EKS users could rely on the stable admission-policy API. This is the version boundary between the historical Stage 0 model and the later enforcement model in this repository. | `shared/kubernetes/admission-policy.yaml` applied by Stages 1 and 2. |
-| Current deterministic platform model | AWS Load Balancer Controller Gateway API support, ExternalDNS Gateway API sources and ACK allow the ALB, routes, DNS intent and Route 53 health check to be expressed as controller-reconciled resources. | Replaces annotation-heavy Ingress intent with explicit `Gateway`, `HTTPRoute`, `LoadBalancerConfiguration` and `TargetGroupConfiguration` resources. A narrow Lambda remains for the cross-service Shield health-check association and lifecycle inventory. | `stages/01-gateway-api` |
-| Current platform-abstraction model | kro can compose Kubernetes and ACK resources behind a platform-authored custom API. Amazon EKS Capabilities can operate ACK and kro as managed cluster capabilities. | Application teams submit `SecureALB`; the platform owns the resource graph, WAF policy catalogue and security defaults. Admission enforcement remains independent of kro. | `stages/02-kro` |
+| Current deterministic Gateway API option | AWS Load Balancer Controller Gateway API support, ExternalDNS Gateway API sources and ACK allow the ALB, routes, DNS intent and Route 53 health check to be expressed as controller-reconciled resources. | Replaces annotation-heavy Ingress intent with explicit `Gateway`, `HTTPRoute`, `LoadBalancerConfiguration` and `TargetGroupConfiguration` resources. A narrow Lambda remains for the cross-service Shield health-check association and lifecycle inventory. This is a complete current architecture without kro. | `stages/01-gateway-api` |
+| Optional current platform-abstraction option | kro can compose Kubernetes and ACK resources behind a platform-authored custom API. Amazon EKS Capabilities can operate ACK and kro as managed cluster capabilities. | Application teams submit `SecureALB`; the platform owns the resource graph, WAF policy catalogue and security defaults. Admission enforcement remains independent of kro. This is an optional abstraction over Stage 1, not a mandatory successor to it. | `stages/02-kro` |
+
+## Technical responsibility by stage
+
+The stages change how intent is declared and which controller owns each reconciliation step. They do not change the requirement for deterministic enforcement.
+
+| Responsibility | Stage 0: Ingress EDA | Stage 1: Gateway API | Stage 2: Optional kro abstraction |
+|---|---|---|---|
+| Application-facing API | Kubernetes `Ingress` plus annotations | `Gateway` and `HTTPRoute`, with AWS-specific configuration resources | Platform-authored `SecureALB` custom resource |
+| ALB, listener and target groups | AWS Load Balancer Controller reconciles `Ingress` | AWS Load Balancer Controller reconciles `Gateway`, `HTTPRoute`, `LoadBalancerConfiguration` and `TargetGroupConfiguration` | kro creates the Stage 1 Kubernetes resource graph; AWS Load Balancer Controller performs the same AWS reconciliation |
+| AWS WAF association | Lifecycle Lambda associates the WebACL after discovering the ALB ARN | AWS Load Balancer Controller reads `LoadBalancerConfiguration.spec.wafV2.webACL` and associates the WebACL | kro resolves the logical WAF policy into `LoadBalancerConfiguration`; AWS Load Balancer Controller performs the association |
+| Shield Advanced protection | Lifecycle Lambda creates and deletes the protection | AWS Load Balancer Controller reads `LoadBalancerConfiguration.spec.shieldConfiguration.enabled` and owns the protection lifecycle | kro sets the same `LoadBalancerConfiguration` field; AWS Load Balancer Controller owns the protection lifecycle |
+| Route 53 alias | Lifecycle Lambda creates and deletes the alias in the original model | ExternalDNS watches Gateway API route sources and manages the alias from the declared hostname and load-balancer status | Same as Stage 1; kro does not manage Route 53 directly |
+| Route 53 health check | Lifecycle Lambda creates and deletes the health check | The deployment creates an ACK `HealthCheck` custom resource; the ACK Route 53 controller watches that CR and invokes the Route 53 API | kro creates the ACK `HealthCheck` CR as part of the graph; the ACK Route 53 controller performs the AWS reconciliation |
+| Shield health-check association | Lifecycle Lambda discovers both resources and calls the Shield association API | Narrow lifecycle Lambda correlates the ACK-created health check with the controller-created Shield protection | Same narrow lifecycle Lambda as Stage 1 |
+| Lifecycle inventory | Lambda writes ALB and dependent-resource state to DynamoDB | Lambda records cross-controller resource correlation in DynamoDB | Lambda remains the DynamoDB writer; kro does not write per-ALB inventory |
+| Drift recovery | Event retry and scheduled reconciliation | Kubernetes controllers reconcile their owned resources; scheduled reconciliation covers the remaining cross-service association | Same as Stage 1 |
+| Admission enforcement | Approved manifests, RBAC, controller configuration and IAM; no stable native `ValidatingAdmissionPolicy` dependency | Native CEL `ValidatingAdmissionPolicy`, RBAC and IAM | The same admission policy remains independent of kro, so kro is not the security boundary |
+
+### Stage 0 technical boundary
+
+The `Ingress` object is the application declaration. The AWS Load Balancer Controller creates the ALB asynchronously, so the ALB ARN does not exist when the manifest is submitted. CloudTrail records the resulting `CreateLoadBalancer` or `DeleteLoadBalancer` API event, EventBridge invokes the lifecycle Lambda, and the Lambda uses ALB tags to decide whether the resource is in scope. DynamoDB preserves the identifiers needed to reverse the dependent-resource lifecycle during deletion.
+
+### Stage 1 technical boundary
+
+The application or platform deploys the following explicit resources:
+
+- `TargetGroupConfiguration` defines target registration and health behaviour.
+- `LoadBalancerConfiguration` defines ALB-level settings, including the WebACL reference and Shield configuration.
+- `Gateway.spec.infrastructure.parametersRef` connects the Gateway to its `LoadBalancerConfiguration`.
+- `HTTPRoute` binds the hostname and routing rules to the Gateway and backend `Service`.
+- The ACK `HealthCheck` CR independently declares the Route 53 health check endpoint.
+
+These resources are submitted together but converge independently. The ACK Route 53 controller does not watch `HTTPRoute`, discover the ALB or derive the health-check endpoint from Gateway status. The deployment supplies the same hostname to both declarations. The health check can therefore exist before the ALB and DNS alias are ready and become healthy after the other controllers converge.
+
+The remaining Lambda is intentionally narrow: it discovers the ALB, the Shield protection and the ACK-created health check, associates or disassociates the health check with Shield, and stores their lifecycle correlation. It does not create the ALB, associate the WebACL, create Shield protection, create the Route 53 alias or create the Route 53 health check.
+
+### Stage 2 technical boundary
+
+The platform deploys a kro `ResourceGraphDefinition` that registers the `SecureALB` custom API. An application team then submits a `SecureALB` instance rather than authoring each Stage 1 resource directly. kro evaluates the schema and creates the `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `Gateway`, `HTTPRoute` and ACK `HealthCheck` resources in the graph.
+
+A platform-controlled WAF policy catalogue converts the logical `wafPolicyRef` supplied by the application into the approved WebACL ARN used by `LoadBalancerConfiguration`. Application RBAC permits teams to create `SecureALB` resources while restricting direct modification of the generated infrastructure resources.
+
+kro performs Kubernetes resource composition only. The AWS Load Balancer Controller, ExternalDNS and ACK controller retain the same AWS reconciliation responsibilities as Stage 1, and the lifecycle Lambda retains the cross-service Shield health-check association and DynamoDB inventory responsibilities. Organisations that do not need a platform-authored abstraction can remain on Stage 1 without losing the current deterministic security model.
 
 ## Stage-to-stage change record
 
